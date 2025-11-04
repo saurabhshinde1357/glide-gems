@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Menu, X, Home, Receipt, Settings as SettingsIcon, Moon, Sun } from 'lucide-react';
+import { Menu, X, Home, Receipt, Settings as SettingsIcon, Moon, Sun, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/hooks/useTheme';
-import { DemoDataPrompt } from './DemoDataPrompt';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 const navItems = [
   { title: 'Dashboard', path: '/', icon: Home },
@@ -16,11 +17,15 @@ const navItems = [
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { signOut, user } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('Signed out successfully');
+  };
 
   return (
     <div className="min-h-screen flex w-full">
-      <DemoDataPrompt />
-      
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card/80 backdrop-blur-md border-b border-card-border z-40 flex items-center px-4">
         <Button
@@ -75,8 +80,8 @@ export function AppLayout() {
               ))}
             </nav>
 
-            {/* Theme Toggle (Desktop) */}
-            <div className="hidden lg:block p-4 border-t border-sidebar-border">
+            {/* Footer */}
+            <div className="hidden lg:block p-4 border-t border-sidebar-border space-y-2">
               <Button
                 variant="outline"
                 className="w-full justify-start gap-3"
@@ -94,6 +99,17 @@ export function AppLayout() {
                   </>
                 )}
               </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
+              </Button>
+              <div className="text-xs text-muted-foreground px-4 pt-2">
+                {user?.email}
+              </div>
             </div>
           </motion.aside>
         )}

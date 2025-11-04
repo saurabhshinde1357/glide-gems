@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,18 @@ serve(async (req) => {
   }
 
   try {
-    const { transactions, budget, type } = await req.json();
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    const { transactions, budget, type, prompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
@@ -94,6 +106,16 @@ Return ONLY the category name, nothing else.`;
     const data = await response.json();
     const content = data.choices[0].message.content;
 
+    // Store AI session in database (using existing supabaseClient and user from above)
+    if (user && type !== 'categorize') {
+      await supabaseClient.from('ai_sessions').insert({
+        user_id: user.id,
+        prompt: prompt || userPrompt,
+        response: content,
+        session_type: type === 'insights' ? 'insights' : type === 'chat' ? 'general' : 'optimization'
+      });
+    }
+
     return new Response(JSON.stringify({ content }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -102,7 +124,7 @@ Return ONLY the category name, nothing else.`;
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error' 
     }), {
-      status: 500,
+      status: error instanceof Error && error.message === 'Unauthorized' ? 401 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
